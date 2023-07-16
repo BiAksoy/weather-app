@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:weather_app/weather_page.dart';
+import 'package:weather_app/pages/weather_page.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -15,7 +15,7 @@ class _SplashPageState extends State<SplashPage> {
     _determinePosition().then((_) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<WeatherPage>(
           builder: (context) => WeatherPage(
             position: _,
           ),
@@ -48,10 +48,11 @@ class _SplashPageState extends State<SplashPage> {
 
     if (permission == LocationPermission.deniedForever) {
       return Future.error(
-        'Location permissions are permanently denied, we cannot request permissions.',
+        'Location permissions are permanently denied, '
+        'we cannot request permissions.',
       );
     }
-    return await Geolocator.getCurrentPosition();
+    return Geolocator.getCurrentPosition();
   }
 
   @override

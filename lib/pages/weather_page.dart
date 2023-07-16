@@ -1,13 +1,12 @@
-import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:weather_app/additional_info_item.dart';
-import 'package:weather_app/hourly_forecast_card.dart';
-import 'package:weather_app/secrets.dart';
+import 'package:weather_app/api/weather_api.dart';
+import 'package:weather_app/model/weather_model.dart';
+import 'package:weather_app/widgets/additional_info_item.dart';
+import 'package:weather_app/widgets/hourly_forecast_card.dart';
 import 'package:weather_icons/weather_icons.dart';
 
 class WeatherPage extends StatefulWidget {
@@ -23,126 +22,14 @@ class WeatherPage extends StatefulWidget {
 }
 
 class _WeatherPageState extends State<WeatherPage> {
-  late String cityName;
-  late Future<Map<String, dynamic>> _weather;
+  late Future<Weather> _weather;
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
-
-  Future<Map<String, dynamic>> _getWeatherBySearch([String? city]) async {
-    try {
-      cityName = city!;
-      final response = await http.get(
-        Uri.parse(
-          'https://api.openweathermap.org/data/2.5/forecast?q=$cityName&units=metric&APPID=$openWeatherAPIKey',
-        ),
-      );
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Failed to fetch weather data. Please try again later.',
-        );
-      }
-      final data = jsonDecode(response.body);
-      return data;
-    } catch (e) {
-      throw Exception(
-        'An unexpected error occurred. Please try again later.',
-      );
-    }
-  }
-
-  Future<Map<String, dynamic>> _getWeatherByCurrentLocation() async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.openweathermap.org/data/2.5/forecast?lat=${widget.position.latitude}&lon=${widget.position.longitude}&units=metric&APPID=$openWeatherAPIKey',
-        ),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Failed to fetch weather data. Please try again later.',
-        );
-      }
-      final data = jsonDecode(response.body);
-      setState(() {
-        cityName = data['city']['name'];
-        _weather = Future.value(data);
-      });
-      return _weather;
-    } catch (e) {
-      throw Exception(
-        'An unexpected error occurred. Please try again later.',
-      );
-    }
-  }
-
-  IconData _getIconBySky(
-      String sky, DateTime sunrise, DateTime sunset, DateTime current) {
-    sunrise = sunrise.toLocal();
-    sunset = sunset.toLocal();
-    current = current.toLocal();
-    final isDayTime =
-        current.hour >= sunrise.hour && current.hour < sunset.hour;
-    if (isDayTime) {
-      switch (sky) {
-        case 'Thunderstorm':
-          return WeatherIcons.day_thunderstorm;
-        case 'Drizzle':
-          return WeatherIcons.day_showers;
-        case 'Rain':
-          return WeatherIcons.day_rain;
-        case 'Snow':
-          return WeatherIcons.day_snow;
-        case 'Mist':
-        case 'Smoke':
-        case 'Haze':
-        case 'Dust':
-        case 'Fog':
-        case 'Sand':
-        case 'Ash':
-        case 'Squall':
-        case 'Tornado':
-          return WeatherIcons.day_fog;
-        case 'Clear':
-          return WeatherIcons.day_sunny;
-        case 'Clouds':
-          return WeatherIcons.day_cloudy;
-        default:
-          return WeatherIcons.alien;
-      }
-    } else {
-      switch (sky) {
-        case 'Thunderstorm':
-          return WeatherIcons.night_alt_thunderstorm;
-        case 'Drizzle':
-          return WeatherIcons.night_alt_showers;
-        case 'Rain':
-          return WeatherIcons.night_alt_rain;
-        case 'Snow':
-          return WeatherIcons.night_alt_snow;
-        case 'Mist':
-        case 'Smoke':
-        case 'Haze':
-        case 'Dust':
-        case 'Fog':
-        case 'Sand':
-        case 'Ash':
-        case 'Squall':
-        case 'Tornado':
-          return WeatherIcons.night_fog;
-        case 'Clear':
-          return WeatherIcons.night_clear;
-        case 'Clouds':
-          return WeatherIcons.night_alt_cloudy;
-        default:
-          return WeatherIcons.alien;
-      }
-    }
-  }
+  final WeatherApi _weatherApi = WeatherApi();
 
   @override
   void initState() {
-    _weather = _getWeatherByCurrentLocation();
+    _weather = _weatherApi.getWeatherByCurrentLocation(widget.position);
     _searchController = TextEditingController();
     _searchFocusNode = FocusNode();
     super.initState();
@@ -171,7 +58,8 @@ class _WeatherPageState extends State<WeatherPage> {
           IconButton(
             onPressed: () {
               setState(() {
-                _weather = _getWeatherByCurrentLocation();
+                _weather =
+                    _weatherApi.getWeatherByCurrentLocation(widget.position);
               });
             },
             icon: const Icon(Icons.refresh),
@@ -185,10 +73,13 @@ class _WeatherPageState extends State<WeatherPage> {
               controller: _searchController,
               focusNode: _searchFocusNode,
               textInputAction: TextInputAction.search,
-              onSubmitted: (value) {
+              onSubmitted: (cityName) {
                 _searchFocusNode.unfocus();
                 setState(() {
-                  _weather = _getWeatherBySearch(value);
+                  if (_searchController.text.isEmpty) {
+                    return;
+                  }
+                  _weather = _weatherApi.getWeatherBySearch(cityName);
                 });
                 _searchController.clear();
               },
@@ -199,7 +90,11 @@ class _WeatherPageState extends State<WeatherPage> {
                   onPressed: () {
                     _searchFocusNode.unfocus();
                     setState(() {
-                      _weather = _getWeatherBySearch(_searchController.text);
+                      if (_searchController.text.isEmpty) {
+                        return;
+                      }
+                      _weather = _weatherApi
+                          .getWeatherBySearch(_searchController.text);
                     });
                     _searchController.clear();
                   },
@@ -210,7 +105,7 @@ class _WeatherPageState extends State<WeatherPage> {
         ),
       ),
       body: SingleChildScrollView(
-        child: FutureBuilder(
+        child: FutureBuilder<Weather>(
           future: _weather,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -223,24 +118,10 @@ class _WeatherPageState extends State<WeatherPage> {
                 child: Text(snapshot.error.toString()),
               );
             }
-            final data = snapshot.data!;
-            final currentWeatherData = data['list'][0];
-            var currentTemperature = currentWeatherData['main']['temp'];
-            currentTemperature =
-                currentTemperature.toStringAsFixed(0); // no decimal after comma
-            final currentSky = currentWeatherData['weather'][0]['main'];
-            final currentSkyDescription =
-                currentWeatherData['weather'][0]['description'];
-            final currentHumidity = currentWeatherData['main']['humidity'];
-            var currentWindSpeed = currentWeatherData['wind']['speed'];
-            currentWindSpeed = currentWindSpeed * 3.6; // m/s to km/h
-            currentWindSpeed =
-                currentWindSpeed.toStringAsFixed(0); // no decimal after comma
-            final currentPressure = currentWeatherData['main']['pressure'];
-            final sunriseTime = DateTime.fromMillisecondsSinceEpoch(
-                data['city']['sunrise'] * 1000);
-            final sunsetTime = DateTime.fromMillisecondsSinceEpoch(
-                data['city']['sunset'] * 1000);
+            final weather = snapshot.data!;
+            final current = weather.currentWeather;
+            final city = weather.city;
+
             return Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -262,11 +143,12 @@ class _WeatherPageState extends State<WeatherPage> {
                             child: Column(
                               children: [
                                 Text(
-                                  cityName,
+                                  city.name,
                                   style: const TextStyle(fontSize: 20),
                                 ),
                                 Text(
-                                  '$currentTemperature°C',
+                                  // ignore: lines_longer_than_80_chars
+                                  '${current.temperature.toStringAsFixed(0)}°C',
                                   style: const TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
@@ -274,16 +156,18 @@ class _WeatherPageState extends State<WeatherPage> {
                                 ),
                                 Icon(
                                   _getIconBySky(
-                                    currentSky,
-                                    sunriseTime,
-                                    sunsetTime,
-                                    DateTime.now(),
+                                    current.sky,
+                                    city.sunriseTime,
+                                    city.sunsetTime,
+                                    current.time.add(
+                                      Duration(seconds: city.timezone),
+                                    ),
                                   ),
                                   size: 64,
                                 ),
                                 const SizedBox(height: 32),
                                 Text(
-                                  currentSkyDescription,
+                                  current.skyDescription,
                                   style: const TextStyle(
                                     fontSize: 20,
                                   ),
@@ -310,22 +194,23 @@ class _WeatherPageState extends State<WeatherPage> {
                       scrollDirection: Axis.horizontal,
                       itemCount: 8,
                       itemBuilder: (context, index) {
-                        final hourlyForecast = data['list'][index + 1];
-                        final hourlySky = hourlyForecast['weather'][0]['main'];
-                        var hourlyTemperature = hourlyForecast['main']['temp'];
-                        hourlyTemperature = hourlyTemperature
-                            .toStringAsFixed(0); // no decimal after comma
-                        final time = DateTime.parse(hourlyForecast['dt_txt']);
+                        final forecast = weather.hourlyForecasts[index];
 
                         return HourlyForecastCard(
-                          time: DateFormat.H().format(time),
-                          icon: _getIconBySky(
-                            hourlySky,
-                            sunriseTime,
-                            sunsetTime,
-                            time,
+                          time: DateFormat.H().format(
+                            forecast.time.add(
+                              Duration(seconds: city.timezone),
+                            ),
                           ),
-                          temperature: hourlyTemperature.toString(),
+                          icon: _getIconBySky(
+                            forecast.sky,
+                            city.sunriseTime,
+                            city.sunsetTime,
+                            forecast.time.add(
+                              Duration(seconds: city.timezone),
+                            ),
+                          ),
+                          temperature: forecast.temperature.toStringAsFixed(0),
                         );
                       },
                     ),
@@ -348,17 +233,18 @@ class _WeatherPageState extends State<WeatherPage> {
                           AdditionalInfoItem(
                             icon: WeatherIcons.humidity,
                             label: 'Humidity',
-                            value: '$currentHumidity%',
+                            value: '${current.humidity}%',
                           ),
                           AdditionalInfoItem(
                             icon: WeatherIcons.wind,
                             label: 'Wind Speed',
-                            value: '$currentWindSpeed km/h',
+                            value:
+                                '${current.windSpeed.toStringAsFixed(0)} km/h',
                           ),
                           AdditionalInfoItem(
                             icon: WeatherIcons.barometer,
                             label: 'Pressure',
-                            value: '$currentPressure hPa',
+                            value: '${current.pressure} hPa',
                           ),
                         ],
                       ),
@@ -368,14 +254,12 @@ class _WeatherPageState extends State<WeatherPage> {
                           AdditionalInfoItem(
                             icon: WeatherIcons.sunrise,
                             label: 'Sunrise',
-                            value:
-                                DateFormat.Hm().format(sunriseTime).toString(),
+                            value: DateFormat.Hm().format(city.sunriseTime),
                           ),
                           AdditionalInfoItem(
                             icon: WeatherIcons.sunset,
                             label: 'Sunset',
-                            value:
-                                DateFormat.Hm().format(sunsetTime).toString(),
+                            value: DateFormat.Hm().format(city.sunsetTime),
                           ),
                         ],
                       ),
@@ -388,5 +272,69 @@ class _WeatherPageState extends State<WeatherPage> {
         ),
       ),
     );
+  }
+}
+
+IconData _getIconBySky(
+  String sky,
+  DateTime sunrise,
+  DateTime sunset,
+  DateTime current,
+) {
+  final isDayTime = current.hour >= sunrise.hour && current.hour < sunset.hour;
+  if (isDayTime) {
+    switch (sky) {
+      case 'Thunderstorm':
+        return WeatherIcons.day_thunderstorm;
+      case 'Drizzle':
+        return WeatherIcons.day_showers;
+      case 'Rain':
+        return WeatherIcons.day_rain;
+      case 'Snow':
+        return WeatherIcons.day_snow;
+      case 'Mist':
+      case 'Smoke':
+      case 'Haze':
+      case 'Dust':
+      case 'Fog':
+      case 'Sand':
+      case 'Ash':
+      case 'Squall':
+      case 'Tornado':
+        return WeatherIcons.day_fog;
+      case 'Clear':
+        return WeatherIcons.day_sunny;
+      case 'Clouds':
+        return WeatherIcons.day_cloudy;
+      default:
+        return WeatherIcons.alien;
+    }
+  } else {
+    switch (sky) {
+      case 'Thunderstorm':
+        return WeatherIcons.night_alt_thunderstorm;
+      case 'Drizzle':
+        return WeatherIcons.night_alt_showers;
+      case 'Rain':
+        return WeatherIcons.night_alt_rain;
+      case 'Snow':
+        return WeatherIcons.night_alt_snow;
+      case 'Mist':
+      case 'Smoke':
+      case 'Haze':
+      case 'Dust':
+      case 'Fog':
+      case 'Sand':
+      case 'Ash':
+      case 'Squall':
+      case 'Tornado':
+        return WeatherIcons.night_fog;
+      case 'Clear':
+        return WeatherIcons.night_clear;
+      case 'Clouds':
+        return WeatherIcons.night_alt_cloudy;
+      default:
+        return WeatherIcons.alien;
+    }
   }
 }
