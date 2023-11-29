@@ -1,10 +1,10 @@
 # Weather App
 
-A simple weather application built with Flutter that provides weather information based on the user's location or a searched city.
+A simple weather application built with Flutter that provides weather information based on the user's current position or a searched location.
 
 ## Features
 
-- Display current weather information including temperature, sky condition, and city name.
+- Display current weather information including temperature, sky condition, and location name.
 - Hourly forecast for the next 24 hours.
 - Additional information such as humidity, wind speed, pressure, sunrise, and sunset times.
 
@@ -47,9 +47,9 @@ flutter run
 
 ## Usage
 
-When the app is launched, it first shows a splash screen with the text "Weather App." During this time, it determines the user's current location using the device's geolocation capabilities.
+When the app is launched, it first shows a splash screen with the text "Weather App." During this time, it determines the user's current position using the device's geolocation capabilities.
 
-After determining the location, the app displays the weather information for the user's current location. The main weather page includes the current temperature, sky condition, and city name. The app also provides a search bar at the top to allow the user to search for weather information for a specific city.
+After determining the position, the app displays the weather information for the user's current location. The main weather page includes the current temperature, sky condition, and city name. The app also provides a search bar at the top to allow the user to search for weather information for a specific city.
 
 The app also displays the hourly forecast for the next 24 hours. Each forecast card shows the time, weather icon, and temperature for that hour.
 

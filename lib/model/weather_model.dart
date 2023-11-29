@@ -78,8 +78,7 @@ class HourlyForecast {
     final time =
         DateTime.fromMillisecondsSinceEpoch((data['dt'] as int) * 1000).toUtc();
     final sky = data['weather'][0]['main'] as String;
-    // .toDouble() is needed for a reason that I don't know yet.
-    final temperature = data['main']['temp'].toDouble() as double;
+    final temperature = data['main']['temp'].toDouble() as num;
 
     return HourlyForecast(
       time: time,
@@ -89,7 +88,7 @@ class HourlyForecast {
   }
   final DateTime time;
   final String sky;
-  final double temperature;
+  final num temperature;
 }
 
 class City {

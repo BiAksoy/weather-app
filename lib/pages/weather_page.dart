@@ -25,11 +25,11 @@ class _WeatherPageState extends State<WeatherPage> {
   late Future<Weather> _weather;
   late TextEditingController _searchController;
   late FocusNode _searchFocusNode;
-  final WeatherApi _weatherApi = WeatherApi();
+  final WeatherAPI _weatherAPI = WeatherAPI();
 
   @override
   void initState() {
-    _weather = _weatherApi.getWeatherByCurrentLocation(widget.position);
+    _weather = _weatherAPI.getWeatherByCurrentPosition(widget.position);
     _searchController = TextEditingController();
     _searchFocusNode = FocusNode();
     super.initState();
@@ -59,7 +59,7 @@ class _WeatherPageState extends State<WeatherPage> {
             onPressed: () {
               setState(() {
                 _weather =
-                    _weatherApi.getWeatherByCurrentLocation(widget.position);
+                    _weatherAPI.getWeatherByCurrentPosition(widget.position);
               });
             },
             icon: const Icon(Icons.refresh),
@@ -79,12 +79,12 @@ class _WeatherPageState extends State<WeatherPage> {
                   if (_searchController.text.isEmpty) {
                     return;
                   }
-                  _weather = _weatherApi.getWeatherBySearch(cityName);
+                  _weather = _weatherAPI.getWeatherBySearchedLocation(cityName);
                 });
                 _searchController.clear();
               },
               decoration: InputDecoration(
-                hintText: 'Search city',
+                hintText: 'Search Location',
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: () {
@@ -93,8 +93,8 @@ class _WeatherPageState extends State<WeatherPage> {
                       if (_searchController.text.isEmpty) {
                         return;
                       }
-                      _weather = _weatherApi
-                          .getWeatherBySearch(_searchController.text);
+                      _weather = _weatherAPI
+                          .getWeatherBySearchedLocation(_searchController.text);
                     });
                     _searchController.clear();
                   },
@@ -147,8 +147,7 @@ class _WeatherPageState extends State<WeatherPage> {
                                   style: const TextStyle(fontSize: 20),
                                 ),
                                 Text(
-                                  // ignore: lines_longer_than_80_chars
-                                  '${current.temperature.toStringAsFixed(0)}°C',
+                                  '${current.temperature.round()}°C',
                                   style: const TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.bold,
@@ -210,7 +209,7 @@ class _WeatherPageState extends State<WeatherPage> {
                               Duration(seconds: city.timezone),
                             ),
                           ),
-                          temperature: forecast.temperature.toStringAsFixed(0),
+                          temperature: forecast.temperature.round().toString(),
                         );
                       },
                     ),
@@ -238,8 +237,7 @@ class _WeatherPageState extends State<WeatherPage> {
                           AdditionalInfoItem(
                             icon: WeatherIcons.wind,
                             label: 'Wind Speed',
-                            value:
-                                '${current.windSpeed.toStringAsFixed(0)} km/h',
+                            value: '${current.windSpeed.round()} km/h',
                           ),
                           AdditionalInfoItem(
                             icon: WeatherIcons.barometer,
